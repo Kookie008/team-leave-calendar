@@ -40,8 +40,18 @@
         }
 
         .navbar h1 { font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--primary); }
-        .sync-indicator { font-size: 0.75rem; color: #10b981; display: flex; align-items: center; gap: 5px; }
-        .sync-indicator::before { content: ''; width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; }
+        
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-online { background: #dcfce7; color: #166534; }
+        .status-offline { background: #fee2e2; color: #991b1b; }
 
         .main-content {
             max-width: 1200px;
@@ -66,7 +76,6 @@
 
         .card-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: #fafafa; }
         .card-header h2 { font-size: 1.1rem; margin: 0; font-weight: 600; }
-
         .card-body { padding: 1.5rem; }
 
         .form-group { margin-bottom: 1.25rem; }
@@ -79,13 +88,6 @@
             border-radius: 8px;
             font-size: 0.95rem;
             background: #fff;
-            transition: all 0.2s;
-        }
-
-        input:focus, select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
         .btn {
@@ -96,12 +98,10 @@
             border: none;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 0.95rem;
         }
 
         .btn-primary { background: var(--primary); color: white; }
         .btn-primary:hover { background: var(--primary-dark); }
-        .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
 
         .date-selector-large {
             display: flex;
@@ -114,7 +114,7 @@
             margin-bottom: 1.5rem;
         }
 
-        .date-selector-large input { width: auto; flex-grow: 1; border: none; font-size: 1.1rem; font-weight: 600; }
+        .date-selector-large input { flex-grow: 1; border: none; font-size: 1.1rem; font-weight: 600; cursor: pointer; }
 
         .leave-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 
@@ -126,23 +126,19 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: transform 0.2s;
         }
-
-        .leave-card:hover { transform: translateY(-2px); border-color: var(--primary); }
 
         .member-info h4 { margin: 0; font-size: 1rem; color: var(--text-main); }
         .member-info p { margin: 0.25rem 0 0; font-size: 0.8125rem; color: var(--text-muted); }
 
-        .badge-group { display: flex; gap: 0.5rem; align-items: center; }
         .badge {
             padding: 0.25rem 0.75rem;
             border-radius: 99px;
             font-size: 0.75rem;
             font-weight: 600;
-            text-transform: uppercase;
+            background: #eff6ff;
+            color: #1e40af;
         }
-        .badge-dept { background: #eff6ff; color: #1e40af; }
 
         .btn-delete {
             background: transparent;
@@ -150,40 +146,33 @@
             border: none;
             cursor: pointer;
             padding: 5px;
-            border-radius: 4px;
+            margin-left: 10px;
         }
-        .btn-delete:hover { color: var(--danger); background: #fee2e2; }
+        .btn-delete:hover { color: var(--danger); }
 
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--text-muted);
-        }
+        .empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
 
         .loading-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255,255,255,0.7);
             display: none; justify-content: center; align-items: center;
-            z-index: 1000; font-weight: 600;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
 
-<div id="loader" class="loading-overlay">Updating Calendar...</div>
+<div id="loader" class="loading-overlay">Syncing...</div>
 
 <nav class="navbar">
     <h1>Team Leave Portal</h1>
-    <div class="sync-indicator">Cloud Connected</div>
+    <div id="connectionStatus" class="status-badge status-offline">Connecting...</div>
 </nav>
 
 <div class="main-content">
-    <!-- Action Column -->
     <div class="sidebar">
         <div class="card">
-            <div class="card-header">
-                <h2>File New Leave</h2>
-            </div>
+            <div class="card-header"><h2>File New Leave</h2></div>
             <div class="card-body">
                 <form id="leaveForm">
                     <div class="form-group">
@@ -199,7 +188,6 @@
                             <option value="Ace">Ace</option>
                         </select>
                     </div>
-
                     <div class="form-group">
                         <label>Department</label>
                         <select id="department" required>
@@ -212,162 +200,157 @@
                             <option value="EEP">EEP</option>
                         </select>
                     </div>
-
                     <div class="form-group">
                         <label>Sub-Department</label>
-                        <input type="text" id="subDepartment" placeholder="e.g. Operations" required>
+                        <input type="text" id="subDepartment" placeholder="Manual Entry" required>
                     </div>
-
                     <div class="form-group">
                         <label>Date of Leave</label>
                         <input type="date" id="leaveDate" required>
                     </div>
-
-                    <button type="submit" class="btn btn-primary" id="submitBtn">Submit Leave Request</button>
+                    <button type="submit" class="btn btn-primary">Save Leave Entry</button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Display Column -->
     <div class="display-area">
         <div class="date-selector-large">
-            <span style="color: var(--text-muted); font-size: 0.875rem;">Viewing Date:</span>
+            <span>Date:</span>
             <input type="date" id="viewDatePicker">
         </div>
-
         <div id="resultsList" class="leave-grid">
-            <!-- Dynamic Content -->
-            <div class="empty-state">
-                <p>Loading attendance data...</p>
-            </div>
+            <div class="empty-state">Loading data...</div>
         </div>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, deleteDoc, doc, signInAnonymously, getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, signInAnonymously, getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // App Identity
-    const appId = window.__app_id || 'team-leave-v1';
-    const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
-    
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'leave-portal-v1';
+    const statusEl = document.getElementById('connectionStatus');
+    const viewPicker = document.getElementById('viewDatePicker');
+    const resultsArea = document.getElementById('resultsList');
+    const loader = document.getElementById('loader');
+
     let db;
     let allLeaves = [];
-    const loader = document.getElementById('loader');
-    const viewPicker = document.getElementById('viewDatePicker');
-
-    // Set today as default
     viewPicker.value = new Date().toISOString().split('T')[0];
 
-    async function initializeAppPortal() {
-        if (!firebaseConfig.apiKey) {
-            console.error("Firebase config missing. Using local storage fallback.");
-            setupLocalFallback();
-            return;
+    async function start() {
+        // 1. Try Firebase Cloud Sync
+        if (typeof __firebase_config !== 'undefined') {
+            try {
+                const config = JSON.parse(__firebase_config);
+                const app = initializeApp(config);
+                const auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                statusEl.textContent = "Cloud Active";
+                statusEl.className = "status-badge status-online";
+                setupCloud();
+                return;
+            } catch (e) {
+                console.error("Cloud connection failed", e);
+            }
         }
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        db = getFirestore(app);
-
-        try {
-            await signInAnonymously(auth);
-            setupCloudSync();
-        } catch (e) {
-            console.error("Auth failed:", e);
-            setupLocalFallback();
-        }
+        // 2. Fallback to Local Browser Sync
+        statusEl.textContent = "Local Mode";
+        statusEl.className = "status-badge status-offline";
+        setupLocal();
     }
 
-    function setupCloudSync() {
-        const leavesRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaves');
+    function setupCloud() {
+        const path = collection(db, 'artifacts', appId, 'public', 'data', 'leaves');
         
-        // Form Submission
         document.getElementById('leaveForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             loader.style.display = 'flex';
-
-            const record = {
-                name: document.getElementById('memberName').value,
-                dept: document.getElementById('department').value,
-                subDept: document.getElementById('subDepartment').value,
-                date: document.getElementById('leaveDate').value,
-                timestamp: Date.now()
-            };
-
+            const data = getFormData();
             try {
-                await addDoc(leavesRef, record);
-                document.getElementById('leaveForm').reset();
-            } catch (err) {
-                alert("Cloud Sync Error: " + err.message);
-            } finally {
-                loader.style.display = 'none';
-            }
+                await addDoc(path, data);
+                e.target.reset();
+            } finally { loader.style.display = 'none'; }
         });
 
-        // Real-time listener
-        onSnapshot(leavesRef, (snapshot) => {
-            allLeaves = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        onSnapshot(path, (snap) => {
+            allLeaves = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             render();
+        }, (err) => {
+            console.error(err);
+            setupLocal(); // Fallback if permissions fail
         });
+
+        window.removeEntry = async (id) => {
+            if (confirm("Remove this entry?")) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leaves', id));
+            }
+        };
     }
 
-    // Global Delete Function (Cloud)
-    window.deleteLeave = async (id) => {
-        if (!confirm("Are you sure you want to remove this leave entry?")) return;
-        loader.style.display = 'flex';
-        try {
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leaves', id));
-        } catch (e) {
-            alert("Delete failed");
-        } finally {
-            loader.style.display = 'none';
-        }
-    };
+    function setupLocal() {
+        allLeaves = JSON.parse(localStorage.getItem('leaves_backup') || '[]');
+        
+        document.getElementById('leaveForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const data = { id: Date.now().toString(), ...getFormData() };
+            allLeaves.push(data);
+            localStorage.setItem('leaves_backup', JSON.stringify(allLeaves));
+            e.target.reset();
+            render();
+        });
+
+        window.removeEntry = (id) => {
+            if (confirm("Remove this entry?")) {
+                allLeaves = allLeaves.filter(l => l.id !== id);
+                localStorage.setItem('leaves_backup', JSON.stringify(allLeaves));
+                render();
+            }
+        };
+        render();
+    }
+
+    function getFormData() {
+        return {
+            name: document.getElementById('memberName').value,
+            dept: document.getElementById('department').value,
+            subDept: document.getElementById('subDepartment').value,
+            date: document.getElementById('leaveDate').value
+        };
+    }
 
     function render() {
-        const selectedDate = viewPicker.value;
-        const resultsArea = document.getElementById('resultsList');
-        const filtered = allLeaves.filter(l => l.date === selectedDate);
-
+        const date = viewPicker.value;
+        const filtered = allLeaves.filter(l => l.date === date);
         if (filtered.length === 0) {
-            resultsArea.innerHTML = `
-                <div class="empty-state">
-                    <p>No members are scheduled to be away on this date.</p>
-                </div>
-            `;
+            resultsArea.innerHTML = `<div class="empty-state">No leaves logged for this date.</div>`;
             return;
         }
-
-        resultsArea.innerHTML = filtered.map(item => `
+        resultsArea.innerHTML = filtered.map(l => `
             <div class="leave-card">
                 <div class="member-info">
-                    <h4>${item.name}</h4>
-                    <p>${item.subDept}</p>
+                    <h4>${l.name}</h4>
+                    <p>${l.subDept}</p>
                 </div>
-                <div class="badge-group">
-                    <span class="badge badge-dept">${item.dept}</span>
-                    <button class="btn-delete" onclick="deleteLeave('${item.id}')" title="Remove Entry">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                    </button>
+                <div style="display:flex; align-items:center;">
+                    <span class="badge">${l.dept}</span>
+                    <button class="btn-delete" onclick="removeEntry('${l.id}')">✕</button>
                 </div>
             </div>
         `).join('');
     }
 
     viewPicker.addEventListener('change', render);
-
-    function setupLocalFallback() {
-        document.querySelector('.sync-indicator').textContent = "Offline Mode";
-        document.querySelector('.sync-indicator').style.color = "#f59e0b";
-        // Simple local storage logic would go here if needed
-        alert("Running in Offline mode. Data will only be saved on this device.");
-    }
-
-    initializeAppPortal();
+    start();
 </script>
-
 </body>
 </html>
